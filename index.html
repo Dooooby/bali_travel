@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>발리 5박 6일 여행 플래너</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        /* 모바일 앱 느낌을 위한 스타일 */
+        body {
+            background-color: #f0fdfa; /* teal-50 */
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* 안전한 영역 패딩 */
+        .safe-area-pb {
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        /* 텍스트 선택 방지 (앱 느낌) */
+        .no-select {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- 아이콘 컴포넌트 정의 (Lucide Icons SVG) ---
+        // 외부 의존성 제거를 위해 직접 정의합니다.
+        const IconBase = ({ children, size = 24, className = "", ...props }) => (
+            <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width={size} 
+                height={size} 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                className={className}
+                {...props}
+            >
+                {children}
+            </svg>
+        );
+
+        const Icons = {
+            Calendar: (props) => <IconBase {...props}><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></IconBase>,
+            Clock: (props) => <IconBase {...props}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></IconBase>,
+            MapPin: (props) => <IconBase {...props}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></IconBase>,
+            DollarSign: (props) => <IconBase {...props}><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></IconBase>,
+            Camera: (props) => <IconBase {...props}><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></IconBase>,
+            Plane: (props) => <IconBase {...props}><path d="M2 12h20"/><path d="M13 2 9 22"/><path d="m13 22 4-8"/><path d="m9 2 4 8"/></IconBase>, // 대체 아이콘
+            Coffee: (props) => <IconBase {...props}><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" x2="6" y1="1" y2="4"/><line x1="10" x2="10" y1="1" y2="4"/><line x1="14" x2="14" y1="1" y2="4"/></IconBase>,
+            Utensils: (props) => <IconBase {...props}><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></IconBase>,
+            Sun: (props) => <IconBase {...props}><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></IconBase>,
+            Moon: (props) => <IconBase {...props}><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></IconBase>,
+            ArrowRight: (props) => <IconBase {...props}><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></IconBase>,
+            Calculator: (props) => <IconBase {...props}><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></IconBase>,
+            Menu: (props) => <IconBase {...props}><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></IconBase>,
+            ChevronRight: (props) => <IconBase {...props}><path d="m9 18 6-6-6-6"/></IconBase>,
+            ExternalLink: (props) => <IconBase {...props}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></IconBase>,
+            MusicIcon: (props) => <IconBase {...props}><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></IconBase>,
+            MapIcon: (props) => <IconBase {...props}><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" x2="9" y1="3" y2="18"/><line x1="15" x2="15" y1="6" y2="21"/></IconBase>,
+            Sparkles: (props) => <IconBase {...props}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z"/></IconBase>,
+            CheckCircle: (props) => <IconBase {...props}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></IconBase>,
+            Plus: (props) => <IconBase {...props}><path d="M5 12h14"/><path d="M12 5v14"/></IconBase>,
+            Loader: (props) => <IconBase {...props}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></IconBase>,
+            X: (props) => <IconBase {...props}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></IconBase>,
+            Languages: (props) => <IconBase {...props}><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></IconBase>,
+            Copy: (props) => <IconBase {...props}><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></IconBase>,
+            Settings: (props) => <IconBase {...props}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></IconBase>
+        };
+
+        const BaliTripApp = () => {
+            // 사용자 API 키 관리
+            const [userApiKey, setUserApiKey] = useState('');
+            const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+
+            useEffect(() => {
+                const storedKey = localStorage.getItem('gemini_api_key');
+                if (storedKey) setUserApiKey(storedKey);
+            }, []);
+
+            const saveApiKey = (key) => {
+                localStorage.setItem('gemini_api_key', key);
+                setUserApiKey(key);
+                setShowApiKeyModal(false);
+            };
+
+            // 상태 관리
+            const [exchangeRate] = useState(11.34);
+            const [krwInput, setKrwInput] = useState('');
+            const [activeTab, setActiveTab] = useState('itinerary');
+            const [activeDay, setActiveDay] = useState(1);
+            const [loadingTip, setLoadingTip] = useState({ day: null, event: null });
+            const [checklistLoading, setChecklistLoading] = useState(false);
+            const [transInput, setTransInput] = useState('');
+            const [transResult, setTransResult] = useState('');
+            const [transLoading, setTransLoading] = useState(false);
+            const [targetLang, setTargetLang] = useState('id');
+
+            // 체크리스트 데이터
+            const [checklistItems, setChecklistItems] = useState([
+                { id: 1, text: "여권 (유효기간 6개월 이상)", checked: false },
+                { id: 2, text: "전자비자 (E-VOA) 발급", checked: false },
+                { id: 3, text: "샤워기 필터 (필수!)", checked: false },
+                { id: 4, text: "상비약 (배탈약, 진통제)", checked: false },
+                { id: 5, text: "선크림 & 선글라스", checked: false },
+                { id: 6, text: "모기 기피제", checked: false }
+            ]);
+
+            // 여행 일정 데이터
+            const [itinerary, setItinerary] = useState([
+                {
+                    day: 1,
+                    date: '11.26 (화)',
+                    title: '발리 도착 & 우붓 이동',
+                    location: '부산 → 발리 → 우붓',
+                    totalCost: 0,
+                    events: [
+                        {
+                            time: '17:05',
+                            title: '부산 김해공항 출발',
+                            desc: '비행기 탑승 (약 7시간 소요)',
+                            icon: <Icons.Plane size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&q=80&w=600&h=300',
+                            type: 'transport',
+                            blogQuery: '김해공항 발리 출국 후기',
+                            aiTip: null
+                        },
+                        {
+                            time: '22:55',
+                            title: '발리 덴파사르 공항 도착',
+                            desc: '입국 심사 및 짐 찾기',
+                            icon: <Icons.MapPin size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1537996194471-e657df975ab4?auto=format&fit=crop&q=80&w=600&h=300',
+                            type: 'arrival',
+                            blogQuery: '발리 덴파사르 공항 입국 후기',
+                            aiTip: null
+                        },
+                        {
+                            time: '23:30',
+                            title: '픽업 차량 탑승 → K 클럽 우붓',
+                            desc: '이동 시간: 약 1시간 30분 ~ 2시간 예상',
+                            icon: <Icons.Clock size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1517999349305-382e9d292265?auto=format&fit=crop&q=80&w=600&h=300',
+                            type: 'transport',
+                            blogQuery: '발리 공항 픽업 우붓 이동',
+                            aiTip: null
+                        },
+                        {
+                            time: '01:30',
+                            title: 'K 클럽 우붓 체크인',
+                            desc: '정글 속 럭셔리 빌라에서 휴식',
+                            icon: <Icons.Moon size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1582610116397-edb318620f90?auto=format&fit=crop&q=80&w=600&h=300', 
+                            type: 'stay',
+                            blogQuery: 'K 클럽 우붓 숙소 후기',
+                            aiTip: null
+                        }
+                    ]
+                },
+                {
+                    day: 2,
+                    date: '11.27 (수)',
+                    title: '우붓의 낭만 즐기기',
+                    location: '우붓 중심가',
+                    totalCost: 0,
+                    events: [
+                        {
+                            time: '~ 12:00',
+                            title: 'K 클럽 우붓 호캉스',
+                            desc: '인피니티 풀 즐기기 & 조식',
+                            icon: <Icons.Sun size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&q=80&w=600&h=300', 
+                            type: 'stay',
+                            blogQuery: 'K 클럽 우붓 수영장 조식',
+                            aiTip: null
+                        },
+                        {
+                            time: '12:30',
+                            title: '점심: 피손 우붓 (Pison Ubud)',
+                            desc: '논뷰가 보이는 브런치 카페 맛집',
+                            icon: <Icons.Utensils size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&q=80&w=600&h=300', 
+                            type: 'food',
+                            blogQuery: '발리 피손 우붓 맛집 후기',
+                            aiTip: null
+                        },
+                        {
+                            time: '14:00',
+                            title: '몽키 포레스트',
+                            desc: '원숭이들과 숲 산책 (15:30까지)',
+                            icon: <Icons.Camera size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1581337204873-ef36aa186caa?auto=format&fit=crop&q=80&w=600&h=300', 
+                            type: 'activity',
+                            blogQuery: '우붓 몽키포레스트 관람 팁',
+                            aiTip: null
+                        },
+                        {
+                            time: '15:30',
+                            title: '우붓 왕궁 & 야시장 & 카페',
+                            desc: '스타벅스 우붓 사원점 & 시내 구경',
+                            icon: <Icons.Coffee size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1533900298318-6b8da08a523e?auto=format&fit=crop&q=80&w=600&h=300', 
+                            type: 'activity',
+                            blogQuery: '우붓 왕궁 야시장 볼거리',
+                            aiTip: null
+                        },
+                        {
+                            time: '17:00',
+                            title: '푸트리 스파 3호점',
+                            desc: '마사지 90분 코스 (예약 필수)',
+                            icon: <Icons.Moon size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&q=80&w=600&h=300', 
+                            type: 'relax',
+                            blogQuery: '우붓 푸트리 스파 3호점 예약 후기',
+                            aiTip: null
+                        },
+                        {
+                            time: '19:00',
+                            title: '저녁: 와룽 마칸 부루스',
+                            desc: '폭립이 맛있는 가성비 정원 식당',
+                            icon: <Icons.Utensils size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&q=80&w=600&h=300', 
+                            type: 'food',
+                            blogQuery: '와룽 마칸 부루스 메뉴 추천',
+                            aiTip: null
+                        }
+                    ]
+                },
+                {
+                    day: 3,
+                    date: '11.28 (목)',
+                    title: '우붓 택시 투어 & 스미냑 이동',
+                    location: '우붓 외곽 → 스미냑',
+                    totalCost: 0,
+                    events: [
+                        {
+                            time: '09:00',
+                            title: '투어 택시 픽업 & 출발',
+                            desc: '우붓 북부 투어 시작',
+                            icon: <Icons.Clock size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?auto=format&fit=crop&q=80&w=600&h=300', 
+                            type: 'transport',
+                            blogQuery: '발리 우붓 택시 투어 코스 추천',
+                            aiTip: null
+                        },
+                        {
+                            time: '09:30',
+                            title: '칸토 람포 폭포',
+                            desc: '바위 위에서 찍는 인생샷 명소',
+                            icon: <Icons.Camera size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1512353087810-25dfcd10f962?auto=format&fit=crop&q=80&w=600&h=300', 
+                            type: 'activity',
+                            blogQuery: '칸토 람포 폭포 포토존',
+                            aiTip: null
+                        },
+                        {
+                            time: '11:00',
+                            title: '세바투 사원 (Gunung Kawi Sebatu)',
+                            desc: '관광객이 적고 고즈넉한 물의 사원',
+                            icon: <Icons.MapPin size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1554481923-a6918bd997bc?auto=format&fit=crop&q=80&w=600&h=300',
+                            type: 'activity',
+                            blogQuery: '우붓 세바투 사원 후기',
+                            aiTip: null
+                        },
+                        {
+                            time: '12:30',
+                            title: '점심: 뜨갈랄랑 근처',
+                            desc: '계단식 논 뷰를 보며 현지식',
+                            icon: <Icons.Utensils size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1576402187878-974f70c890a5?auto=format&fit=crop&q=80&w=600&h=300', 
+                            type: 'food',
+                            blogQuery: '뜨갈랄랑 맛집 추천',
+                            aiTip: null
+                        },
+                        {
+                            time: '13:30',
+                            title: '뜨갈랄랑 계단식 논',
+                            desc: '✨ 유네스코 세계문화유산 ✨ 산책 및 사진',
+                            icon: <Icons.MapPin size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1518548419970-58e3b4079ab2?auto=format&fit=crop&q=80&w=600&h=300', 
+                            type: 'activity',
+                            blogQuery: '뜨갈랄랑 계단식 논 포토존',
+                            aiTip: null
+                        },
+                        {
+                            time: '15:00',
+                            title: '발리 스윙',
+                            desc: '드레스 입고 정글 배경 그네 타기',
+                            icon: <Icons.Camera size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1577717903315-1691ae25ab3f?auto=format&fit=crop&q=80&w=600&h=300', 
+                            type: 'activity',
+                            blogQuery: '발리 스윙 드레스 대여 후기',
+                            aiTip: null
+                        },
+                        {
+                            time: '17:30',
+                            title: '임피아나 스미냑 빌라 체크인',
+                            desc: '프라이빗 풀빌라 도착 및 휴식',
+                            icon: <Icons.Moon size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1584132967334-10e028bd69f7?auto=format&fit=crop&q=80&w=600&h=300', 
+                            type: 'stay',
+                            blogQuery: '임피아나 스미냑 프라이빗 빌라 후기',
+                            aiTip: null
+                        },
+                        {
+                            time: '18:30',
+                            title: '저녁: 목구멍 (Mok Gumeong)',
+                            desc: '스미냑에 위치한 한국 솥뚜껑 삼겹살',
+                            icon: <Icons.Utensils size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1594040291635-1b8983c95b93?auto=format&fit=crop&q=80&w=600&h=300',
+                            type: 'food',
+                            blogQuery: '발리 스미냑 목구멍 한식당',
+                            aiTip: null
+                        }
+                    ]
+                },
+                {
+                    day: 4,
+                    date: '11.29 (금)',
+                    title: '스미냑 핫플레이스 & 비치클럽',
+                    location: '스미냑 & 짱구',
+                    totalCost: 0,
+                    events: [
+                        {
+                            time: '08:00',
+                            title: '플로팅 조식 & 모닝 수영',
+                            desc: '풀빌라의 묘미, 물 위에서 먹는 아침',
+                            icon: <Icons.Sun size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1596394516093-501ba68a0ba6?auto=format&fit=crop&q=80&w=600&h=300', 
+                            type: 'stay',
+                            blogQuery: '발리 플로팅 조식 후기',
+                            aiTip: null
+                        },
+                        {
+                            time: '10:30',
+                            title: '스미냑 빌리지 & 리볼버 에스프레소',
+                            desc: '힙한 편집샵 구경 & 인생 라떼 맛집',
+                            icon: <Icons.Coffee size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&q=80&w=600&h=300', 
+                            type: 'activity',
+                            blogQuery: '스미냑 리볼버 에스프레소 메뉴',
+                            aiTip: null
+                        },
+                        {
+                            time: '12:00',
+                            title: '점심: 마데스 와룽 스미냑',
+                            desc: '나시고랭 & 사테(꼬치) 전통 맛집',
+                            icon: <Icons.Utensils size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1536521642388-441263f88a61?auto=format&fit=crop&q=80&w=600&h=300',
+                            type: 'food',
+                            blogQuery: '마데스 와룽 스미냑 메뉴 추천',
+                            aiTip: null
+                        },
+                        {
+                            time: '13:00',
+                            title: '빈땅 마켓 & 비치워크 쇼핑몰',
+                            desc: '선물용품 쇼핑 (16:00까지)',
+                            icon: <Icons.DollarSign size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?auto=format&fit=crop&q=80&w=600&h=300', 
+                            type: 'activity',
+                            blogQuery: '빈땅마켓 쇼핑리스트 추천',
+                            aiTip: null
+                        },
+                        {
+                            time: '17:00',
+                            title: '핀스 비치 클럽',
+                            desc: '일몰 보며 칵테일 한잔',
+                            icon: <Icons.MusicIcon size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&q=80&w=600&h=300', 
+                            type: 'activity',
+                            blogQuery: '핀스 비치클럽 예약 자리 추천',
+                            aiTip: null
+                        },
+                        {
+                            time: '17:30',
+                            title: '저녁: Monsoon (핀스 내)',
+                            desc: '비치클럽 내 레스토랑에서 저녁',
+                            icon: <Icons.Utensils size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&q=80&w=600&h=300', 
+                            type: 'food',
+                            blogQuery: '핀스 비치클럽 음식 추천',
+                            aiTip: null
+                        },
+                        {
+                            time: '19:00',
+                            title: '아이론 페어리스 (Iron Fairies)',
+                            desc: '요정 컨셉의 몽환적인 재즈/락 바',
+                            icon: <Icons.Moon size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&q=80&w=600&h=300', 
+                            type: 'activity',
+                            blogQuery: '발리 아이론 페어리스 후기',
+                            aiTip: null
+                        }
+                    ]
+                },
+                {
+                    day: 5,
+                    date: '11.30 (토)',
+                    title: '블루라군 스노클링 & 출국',
+                    location: '빠당바이 → 공항',
+                    totalCost: 0,
+                    events: [
+                        {
+                            time: '08:00',
+                            title: '픽업 트럭 탑승 → 블루라군',
+                            desc: '이동: 스미냑에서 약 1.5 ~ 2시간 소요',
+                            icon: <Icons.Clock size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1535970793482-07de93762dc4?auto=format&fit=crop&q=80&w=600&h=300', 
+                            type: 'transport',
+                            blogQuery: '발리 블루라군 스노클링 이동',
+                            aiTip: null
+                        },
+                        {
+                            time: '10:00',
+                            title: '블루라군 스노클링',
+                            desc: '니모를 찾아서! 맑은 수중 환경',
+                            icon: <Icons.Sun size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&q=80&w=600&h=300', 
+                            type: 'activity',
+                            blogQuery: '블루라군 스노클링 솔직 후기',
+                            aiTip: null
+                        },
+                        {
+                            time: '12:30',
+                            title: '점심: 신라면 & 현지식',
+                            desc: '물놀이 후 먹는 라면은 꿀맛',
+                            icon: <Icons.Utensils size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?auto=format&fit=crop&q=80&w=600&h=300', 
+                            type: 'food',
+                            blogQuery: '블루라군 스노클링 점심',
+                            aiTip: null
+                        },
+                        {
+                            time: '16:00',
+                            title: '망고 스파',
+                            desc: '여행의 마지막 피로 풀기 (90분)',
+                            icon: <Icons.Moon size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1515377905703-c4788e51af15?auto=format&fit=crop&q=80&w=600&h=300', 
+                            type: 'relax',
+                            blogQuery: '발리 망고스파 마사지 후기',
+                            aiTip: null
+                        },
+                        {
+                            time: '18:30',
+                            title: '저녁: 임피아나 빌라 내 식당',
+                            desc: 'Prana Restaurant에서 마지막 만찬',
+                            icon: <Icons.Utensils size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1606402179428-a57976d71fa4?auto=format&fit=crop&q=80&w=600&h=300', 
+                            type: 'food',
+                            blogQuery: '임피아나 스미냑 레스토랑',
+                            aiTip: null
+                        },
+                        {
+                            time: '20:30',
+                            title: '공항으로 이동',
+                            desc: '여행 마무리 (약 40분 소요)',
+                            icon: <Icons.Plane size={18} />,
+                            cost: 0,
+                            img: 'https://images.unsplash.com/photo-1569154941061-e231b4725ef1?auto=format&fit=crop&q=80&w=600&h=300', 
+                            type: 'transport',
+                            blogQuery: '발리 공항 출국 심사 시간',
+                            aiTip: null
+                        }
+                    ]
+                }
+            ]);
+
+            // Helper Functions
+            const handleCostChange = (dayIndex, eventIndex, value) => {
+                const newItinerary = [...itinerary];
+                const numericValue = parseInt(value.replace(/[^0-9]/g, ''), 10) || 0;
+                newItinerary[dayIndex].events[eventIndex].cost = numericValue;
+                newItinerary[dayIndex].totalCost = newItinerary[dayIndex].events.reduce((acc, curr) => acc + curr.cost, 0);
+                setItinerary(newItinerary);
+            };
+
+            const getTotalTripCost = () => itinerary.reduce((acc, day) => acc + day.totalCost, 0);
+            const calculateIDR = (krw) => krw ? Math.floor(krw * exchangeRate).toLocaleString() : 0;
+            const getBlogSearchLink = (query) => `https://search.naver.com/search.naver?where=blog&query=${encodeURIComponent(query)}`;
+
+            const checkApiKey = () => {
+                if (!userApiKey) {
+                    setShowApiKeyModal(true);
+                    return false;
+                }
+                return true;
+            };
+
+            const generateAiTip = async (dayIndex, eventIndex, title) => {
+                if (!checkApiKey()) return;
+                setLoadingTip({ day: dayIndex, event: eventIndex });
+                try {
+                    const prompt = `여행지 '${title}' (발리)에 방문하는 한국인 여행객을 위한 짧고 유용한 꿀팁이나 흥미로운 사실 1가지를 알려줘. 2문장 이내로, 친근한 말투로 작성해줘.`;
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${userApiKey}`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                    });
+                    const data = await response.json();
+                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "팁을 불러오지 못했어요.";
+                    const newItinerary = [...itinerary];
+                    newItinerary[dayIndex].events[eventIndex].aiTip = text;
+                    setItinerary(newItinerary);
+                } catch (error) {
+                    alert('AI 호출 오류: API 키를 확인해주세요.');
+                } finally {
+                    setLoadingTip({ day: null, event: null });
+                }
+            };
+
+            const generateAiChecklist = async () => {
+                if (!checkApiKey()) return;
+                setChecklistLoading(true);
+                try {
+                    const prompt = "발리 5박 6일 여행(스노쿨링, 사원, 몽키포레스트, 파인 다이닝 포함)을 위한 필수 준비물 5가지를 추천해줘. 일반적인 것 제외, 구체적인 것. JSON 배열 포맷(예: ['아이템1', '아이템2'])으로만 응답해줘.";
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${userApiKey}`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } })
+                    });
+                    const data = await response.json();
+                    const items = JSON.parse(data.candidates[0].content.parts[0].text);
+                    const newItems = items.map((item, index) => ({ id: Date.now() + index, text: item, checked: false, isAi: true }));
+                    setChecklistItems([...checklistItems, ...newItems]);
+                } catch (error) { alert('AI 호출 오류: API 키를 확인해주세요.'); } finally { setChecklistLoading(false); }
+            };
+
+            const translateText = async () => {
+                if (!checkApiKey() || !transInput.trim()) return;
+                setTransLoading(true);
+                setTransResult('');
+                try {
+                    const targetLangName = targetLang === 'id' ? 'Indonesian (Bahasa Indonesia)' : 'English';
+                    const prompt = `Translate this Korean text to ${targetLangName} helpful for a tourist in Bali: "${transInput}". Output only the translated text.`;
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${userApiKey}`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                    });
+                    const data = await response.json();
+                    setTransResult(data.candidates?.[0]?.content?.parts?.[0]?.text || "번역 실패");
+                } catch (error) { alert('번역 오류'); } finally { setTransLoading(false); }
+            };
+
+            const handleCopy = (text) => navigator.clipboard.writeText(text);
+            const toggleCheckItem = (id) => setChecklistItems(checklistItems.map(item => item.id === id ? { ...item, checked: !item.checked } : item));
+            const removeCheckItem = (id) => setChecklistItems(checklistItems.filter(item => item.id !== id));
+
+            return (
+                <div className="max-w-md mx-auto bg-teal-50 min-h-screen shadow-2xl overflow-hidden font-sans text-slate-800 relative pb-24">
+                    {/* API Key Modal */}
+                    {showApiKeyModal && (
+                        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                            <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+                                <h3 className="text-lg font-bold mb-2 flex items-center gap-2">
+                                    <Icons.Sparkles className="text-teal-500" /> AI 기능 설정
+                                </h3>
+                                <p className="text-sm text-slate-500 mb-4">
+                                    AI 팁, 체크리스트, 번역 기능을 사용하려면<br/>Gemini API 키가 필요합니다.
+                                </p>
+                                <input 
+                                    type="password" 
+                                    placeholder="API Key를 입력하세요" 
+                                    className="w-full border p-3 rounded-xl mb-4 text-sm"
+                                    onKeyDown={(e) => { if (e.key === 'Enter') saveApiKey(e.target.value); }}
+                                />
+                                <div className="flex gap-2">
+                                    <button onClick={() => setShowApiKeyModal(false)} className="flex-1 py-3 bg-slate-100 text-slate-500 rounded-xl text-sm font-bold">나중에</button>
+                                    <button onClick={() => saveApiKey(document.querySelector('input[type="password"]').value)} className="flex-1 py-3 bg-teal-600 text-white rounded-xl text-sm font-bold">저장하기</button>
+                                </div>
+                                <p className="text-[10px] text-slate-400 mt-4 text-center">키는 브라우저에만 안전하게 저장됩니다.</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Settings Button */}
+                    <button 
+                        onClick={() => setShowApiKeyModal(true)} 
+                        className="absolute top-4 right-4 z-20 bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/30 transition-all"
+                    >
+                        <Icons.Settings size={18} />
+                    </button>
+
+                    {/* Header */}
+                    <div className="relative h-60">
+                        <img src="https://images.unsplash.com/photo-1537996194471-e657df975ab4?auto=format&fit=crop&q=80&w=800" alt="Bali Header" className="w-full h-full object-cover"/>
+                        <div className="absolute inset-0 bg-gradient-to-t from-teal-900/90 to-transparent"></div>
+                        <div className="absolute bottom-8 left-6 text-white z-10">
+                            <p className="text-xs font-light tracking-widest mb-2 opacity-90">BUSAN TO BALI</p>
+                            <h1 className="text-3xl font-bold leading-tight mb-2">발리 5박 6일<br/>꿈같은 여행</h1>
+                            <p className="text-teal-100 text-xs flex items-center bg-teal-900/30 px-2 py-1 rounded-lg inline-flex backdrop-blur-sm">
+                                <Icons.Calendar size={12} className="mr-1" /> 11.26 (화) - 12.01 (일)
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Currency Converter */}
+                    <div className="bg-white mx-4 -mt-8 rounded-xl shadow-lg p-4 z-20 relative mb-4 ring-1 ring-black/5">
+                        <div className="flex justify-between items-center mb-2">
+                            <h2 className="text-xs font-bold text-teal-800 flex items-center"><Icons.Calculator size={14} className="mr-1" /> 간편 환율 계산기</h2>
+                            <span className="text-[10px] text-slate-400">1 KRW ≈ {exchangeRate} IDR</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="flex-1 relative">
+                                <input type="number" placeholder="원화 입력" className="w-full bg-slate-100 rounded-lg p-2 text-right pr-8 text-sm font-semibold focus:outline-teal-500" value={krwInput} onChange={(e) => setKrwInput(e.target.value)} />
+                                <span className="absolute right-3 top-2.5 text-xs text-slate-500">원</span>
+                            </div>
+                            <Icons.ArrowRight size={14} className="text-slate-400" />
+                            <div className="flex-1 bg-teal-50 rounded-lg p-2 text-right text-sm font-bold text-teal-700">
+                                {krwInput ? calculateIDR(krwInput) : '0'} <span className="text-xs font-normal">Rp</span>
+                            </div>
+                        </div>
+                        <div className="mt-3 pt-3 border-t border-slate-100 flex justify-between items-end">
+                            <span className="text-xs text-slate-500">총 예상 경비</span>
+                            <span className="text-lg font-bold text-teal-800">{getTotalTripCost().toLocaleString()}원</span>
+                        </div>
+                    </div>
+
+                    {/* Tabs */}
+                    <div className="flex px-4 gap-2 mb-4 overflow-x-auto scrollbar-hide">
+                        {['itinerary', 'checklist', 'map', 'translator'].map(tab => (
+                            <button 
+                                key={tab}
+                                onClick={() => setActiveTab(tab)}
+                                className={`flex-1 py-2 px-4 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${activeTab === tab ? 'bg-teal-600 text-white shadow-md transform scale-[1.02]' : 'bg-white text-slate-500'}`}
+                            >
+                                {tab === 'itinerary' ? '일정표' : tab === 'checklist' ? '체크리스트' : tab === 'map' ? '지도' : '번역'}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Map Content */}
+                    {activeTab === 'map' && (
+                        <div className="px-4 pb-24 h-[60vh]">
+                            <div className="w-full h-full rounded-2xl overflow-hidden shadow-sm border border-slate-100 bg-slate-100">
+                                <iframe width="100%" height="100%" frameBorder="0" scrolling="no" marginHeight="0" marginWidth="0" src="https://maps.google.com/maps?q=Bali,Indonesia&t=&z=10&ie=UTF8&iwloc=&output=embed" title="Bali Map"></iframe>
+                            </div>
+                            <p className="text-center text-xs text-slate-400 mt-2">주요 여행지 위치를 확인해보세요</p>
+                        </div>
+                    )}
+
+                    {/* Translator Content */}
+                    {activeTab === 'translator' && (
+                        <div className="px-4 pb-24">
+                            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2"><Icons.Languages size={20} className="text-teal-500" /> AI 번역기</h2>
+                                    <div className="flex bg-slate-100 rounded-lg p-1">
+                                        <button onClick={() => setTargetLang('id')} className={`px-3 py-1 rounded-md text-xs font-bold transition-colors ${targetLang === 'id' ? 'bg-white text-teal-600 shadow-sm' : 'text-slate-400'}`}>인도네시아어</button>
+                                        <button onClick={() => setTargetLang('en')} className={`px-3 py-1 rounded-md text-xs font-bold transition-colors ${targetLang === 'en' ? 'bg-white text-teal-600 shadow-sm' : 'text-slate-400'}`}>영어</button>
+                                    </div>
+                                </div>
+                                <div className="space-y-4">
+                                    <textarea value={transInput} onChange={(e) => setTransInput(e.target.value)} placeholder="번역할 내용을 입력하세요 (예: 고수 빼주세요)" className="w-full bg-slate-50 rounded-xl p-4 text-slate-700 text-sm focus:outline-teal-500 min-h-[100px] resize-none border border-slate-100" />
+                                    <button onClick={translateText} disabled={transLoading || !transInput} className="w-full bg-teal-600 text-white py-3 rounded-xl font-bold text-sm shadow-md flex items-center justify-center gap-2 hover:bg-teal-700 transition-colors disabled:opacity-50">
+                                        {transLoading ? <Icons.Loader size={16} className="animate-spin" /> : <Icons.Sparkles size={16} />}
+                                        {transLoading ? '번역 중...' : '번역하기'}
+                                    </button>
+                                    {transResult && (
+                                        <div className="relative">
+                                            <label className="text-xs text-slate-400 font-bold mb-1 block">번역 결과</label>
+                                            <div className="bg-indigo-50 rounded-xl p-4 text-indigo-900 text-lg font-bold border border-indigo-100 min-h-[80px] flex items-center">{transResult}</div>
+                                            <button onClick={() => handleCopy(transResult)} className="absolute bottom-3 right-3 text-indigo-400 hover:text-indigo-600 p-1"><Icons.Copy size={16} /></button>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="mt-6 p-4 bg-yellow-50 rounded-xl border border-yellow-100">
+                                    <h3 className="text-xs font-bold text-yellow-700 mb-2">💡 자주 쓰는 표현</h3>
+                                    <div className="flex flex-wrap gap-2">
+                                        {["안녕하세요", "얼마에요?", "감사합니다", "화장실 어디에요?", "고수 빼주세요"].map((text) => (
+                                            <button key={text} onClick={() => setTransInput(text)} className="px-3 py-1.5 bg-white text-yellow-800 text-xs rounded-full border border-yellow-200 hover:bg-yellow-100 transition-colors">{text}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Itinerary Content */}
+                    {activeTab === 'itinerary' && (
+                        <>
+                            <div className="px-4 mb-4 overflow-x-auto scrollbar-hide">
+                                <div className="flex gap-2 min-w-max">
+                                    {itinerary.map((item) => (
+                                        <button key={item.day} onClick={() => setActiveDay(item.day)} className={`flex flex-col items-center px-4 py-2 rounded-xl transition-all border ${activeDay === item.day ? 'bg-teal-100 border-teal-200 text-teal-800 scale-105 shadow-sm' : 'bg-white border-slate-100 text-slate-400 hover:bg-slate-50'}`}>
+                                            <span className="text-[10px] font-bold uppercase tracking-wider">Day</span>
+                                            <span className="text-lg font-extrabold leading-none">{item.day}</span>
+                                            <span className="text-[10px] mt-1 font-medium whitespace-nowrap">{item.date.split(' ')[0]}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="px-4 pb-24">
+                                {itinerary.map((dayItem, dayIndex) => (
+                                    <div key={dayItem.day} className={activeDay === dayItem.day ? 'block' : 'hidden'}>
+                                        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 mb-6 text-center">
+                                            <h2 className="text-lg font-bold text-slate-800 mb-1">{dayItem.title}</h2>
+                                            <p className="text-xs text-slate-500 flex justify-center items-center gap-1"><Icons.MapPin size={12} /> {dayItem.location}</p>
+                                        </div>
+                                        <div className="space-y-6 relative pl-4">
+                                            <div className="absolute left-4 top-2 bottom-2 w-0.5 bg-slate-200"></div>
+                                            {dayItem.events.map((event, eventIndex) => (
+                                                <div key={eventIndex} className="relative pl-6">
+                                                    <div className={`absolute left-[11px] top-0 w-3 h-3 rounded-full border-2 bg-white z-10 ${event.type === 'food' ? 'border-orange-400' : event.type === 'transport' ? 'border-blue-400' : event.type === 'stay' ? 'border-indigo-400' : 'border-teal-500'}`}></div>
+                                                    <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+                                                        <div className="flex justify-between items-start mb-2">
+                                                            <span className="inline-block bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full mb-1">{event.time}</span>
+                                                            <div className={`p-1.5 rounded-full bg-opacity-10 ${event.type === 'food' ? 'bg-orange-400 text-orange-500' : event.type === 'transport' ? 'bg-blue-400 text-blue-500' : event.type === 'stay' ? 'bg-indigo-400 text-indigo-500' : 'bg-teal-500 text-teal-600'}`}>{event.icon}</div>
+                                                        </div>
+                                                        <h3 className="font-bold text-slate-800 text-base mb-1">{event.title}</h3>
+                                                        <p className="text-xs text-slate-500 mb-3">{event.desc}</p>
+                                                        
+                                                        {event.aiTip ? (
+                                                            <div className="mb-3 bg-indigo-50 p-3 rounded-lg border border-indigo-100 relative">
+                                                                <div className="flex items-start gap-2">
+                                                                    <Icons.Sparkles size={16} className="text-indigo-500 mt-0.5 flex-shrink-0" />
+                                                                    <div>
+                                                                        <p className="text-xs text-indigo-800 font-bold mb-1">AI 여행 꿀팁 ✨</p>
+                                                                        <p className="text-xs text-indigo-600 leading-relaxed">{event.aiTip}</p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <button onClick={() => generateAiTip(dayIndex, eventIndex, event.title)} disabled={loadingTip.day === dayIndex && loadingTip.event === eventIndex} className="mb-3 w-full py-1.5 bg-gradient-to-r from-indigo-50 to-purple-50 hover:from-indigo-100 hover:to-purple-100 border border-indigo-100 rounded-lg flex items-center justify-center gap-2 text-xs font-bold text-indigo-600 transition-all">
+                                                                {loadingTip.day === dayIndex && loadingTip.event === eventIndex ? <Icons.Loader size={12} className="animate-spin" /> : <Icons.Sparkles size={12} />}
+                                                                {loadingTip.day === dayIndex && loadingTip.event === eventIndex ? 'AI가 팁을 찾는 중...' : '✨ AI 꿀팁 보기'}
+                                                            </button>
+                                                        )}
+
+                                                        {event.img && (
+                                                            <div className="mb-3 rounded-lg overflow-hidden h-32 relative group">
+                                                                <img src={event.img} alt={event.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                                                                <a href={getBlogSearchLink(event.blogQuery)} target="_blank" rel="noreferrer" className="absolute bottom-2 right-2 bg-white/90 hover:bg-white text-slate-800 text-[10px] font-bold px-2 py-1 rounded-full shadow-sm flex items-center gap-1 transition-colors">블로그 후기 <Icons.ChevronRight size={10} /></a>
+                                                            </div>
+                                                        )}
+                                                        <div className="flex items-center justify-between bg-slate-50 p-2 rounded-lg">
+                                                            <span className="text-xs text-slate-400">예상 지출</span>
+                                                            <div className="flex items-center gap-1">
+                                                                <input type="number" placeholder="0" className="w-20 bg-transparent text-right text-sm font-bold text-teal-700 focus:outline-none placeholder-slate-300" value={event.cost || ''} onChange={(e) => handleCostChange(dayIndex, eventIndex, e.target.value)} />
+                                                                <span className="text-xs font-medium text-slate-500">원</span>
+                                                            </div>
+                                                        </div>
+                                                        {event.cost > 0 && <p className="text-[10px] text-right text-slate-400 mt-1 px-1">≈ {calculateIDR(event.cost)} IDR</p>}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </>
+                    )}
+
+                    {/* Checklist Tab */}
+                    {activeTab === 'checklist' && (
+                        <div className="px-4 pt-6 pb-24">
+                            <div className="bg-gradient-to-br from-teal-500 to-teal-600 text-white p-6 rounded-2xl mb-6 shadow-lg relative overflow-hidden">
+                                <div className="relative z-10">
+                                    <h2 className="text-xl font-bold mb-1">여행 준비물</h2>
+                                    <p className="text-teal-100 text-xs mb-4">꼼꼼하게 챙겨서 완벽한 여행 만드세요!</p>
+                                    <button onClick={generateAiChecklist} disabled={checklistLoading} className="bg-white text-teal-600 px-4 py-2 rounded-lg text-sm font-bold shadow-sm flex items-center gap-2 hover:bg-teal-50 transition-colors w-full justify-center">
+                                        {checklistLoading ? <Icons.Loader size={16} className="animate-spin" /> : <Icons.Sparkles size={16} />}
+                                        {checklistLoading ? 'AI가 분석 중...' : '✨ AI 맞춤 추천받기'}
+                                    </button>
+                                </div>
+                                <Icons.Sparkles className="absolute top-2 right-2 text-teal-400 opacity-50 w-24 h-24" />
+                            </div>
+                            <div className="space-y-2">
+                                {checklistItems.map((item) => (
+                                    <div key={item.id} className={`flex items-center bg-white p-3 rounded-xl border transition-all ${item.checked ? 'border-teal-200 bg-teal-50' : 'border-slate-100'}`}>
+                                        <button onClick={() => toggleCheckItem(item.id)} className={`w-5 h-5 rounded border flex items-center justify-center mr-3 transition-colors ${item.checked ? 'bg-teal-500 border-teal-500 text-white' : 'border-slate-300 bg-white'}`}>{item.checked && <Icons.CheckCircle size={14} />}</button>
+                                        <span className={`text-sm flex-1 ${item.checked ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{item.text}</span>
+                                        {item.isAi && <span className="ml-2 px-1.5 py-0.5 bg-indigo-100 text-indigo-600 text-[10px] font-bold rounded">AI 추천</span>}
+                                        <button onClick={() => removeCheckItem(item.id)} className="text-slate-300 hover:text-red-400 ml-2"><Icons.X size={14} /></button>
+                                    </div>
+                                ))}
+                            </div>
+                            <button className="mt-4 w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-sm font-bold flex items-center justify-center hover:border-teal-300 hover:text-teal-500 transition-colors"><Icons.Plus size={16} className="mr-1" /> 직접 추가하기</button>
+                        </div>
+                    )}
+
+                    {/* Bottom Navigation */}
+                    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-3 flex justify-around text-slate-400 z-20 max-w-md mx-auto pb-6">
+                        <button onClick={() => setActiveTab('itinerary')} className={`flex flex-col items-center transition-colors ${activeTab === 'itinerary' ? 'text-teal-600' : 'hover:text-teal-600'}`}>
+                            <Icons.Calendar size={20} /><span className="text-[10px] mt-1 font-medium">일정</span>
+                        </button>
+                        <button onClick={() => setActiveTab('map')} className={`flex flex-col items-center transition-colors ${activeTab === 'map' ? 'text-teal-600' : 'hover:text-teal-600'}`}>
+                            <Icons.MapIcon size={20} /><span className="text-[10px] mt-1 font-medium">지도</span>
+                        </button>
+                        <button onClick={() => setActiveTab('translator')} className={`flex flex-col items-center transition-colors ${activeTab === 'translator' ? 'text-teal-600' : 'hover:text-teal-600'}`}>
+                            <Icons.Languages size={20} /><span className="text-[10px] mt-1 font-medium">번역</span>
+                        </button>
+                        <button onClick={() => setActiveTab('checklist')} className={`flex flex-col items-center transition-colors ${activeTab === 'checklist' ? 'text-teal-600' : 'hover:text-teal-600'}`}>
+                            <Icons.CheckCircle size={20} /><span className="text-[10px] mt-1 font-medium">체크</span>
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<BaliTripApp />);
+    </script>
+</body>
+</html>
